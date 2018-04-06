@@ -380,8 +380,9 @@ Variable types, on the other hand, can explicitly state which traits they posses
 
 \bigskip
 
-The information on which types conform to which traits is defined inside the type inference environment.
+The information on which types conform to which traits is defined in the unification environment (see \ref{UnificationEnv}).
 When a type $T$ conforms to a trait $Trait$, the notation used is $T \in Trait$.
+The same notation can be used to describe when a type conforms to a set of traits $Traits$ (i.e. $T \in Traits$).
 
 By default, the following rules hold for conformance:
 
