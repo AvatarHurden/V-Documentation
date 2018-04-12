@@ -48,7 +48,7 @@ As described above, a set of constraints $C$ is composed of equalities between t
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-C &:: = &\{\} \; | \; \{T_1 = T_2\} \cup C
+C &:: = & \emptyset \; | \; \{T_1 = T_2\} \cup C
 \end{tabular}}
 
 \paragraph{Environment}
@@ -299,6 +299,65 @@ For a constructor type $conT \; T_1, \; \dots \; T_n$ to conform to a trait $Tra
 
 This will be formally defined in the unification algorithm itself, but these are the general rules that govern trait conformance.
 
+\paragraph{Unification Rules}
+
+Unification iterates through the list of constraints, always operating on the first constraint in the list and recursing on the remaining constraints.
+Because of this format, it can be defined as a base case and recursion rules.
+
+\subparagraph{Base Cases}
+
+The basic case, with an empty constraint list, returns an empty substitution.
+
+\infax[U-Empty]
+  {\gamma \vdash \mathcal{U}(\emptyset) = \emptyset}
+
+If both types of a constraint are equal, they are discarded and the recursion is called.
+
+\infrule[U-Equals]
+  {T_1 = T_2}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C) = \sigma}
+
+\subparagraph{Compound Types}
+
+When encountered, compound types are destructured and equality constraints with their corresponding components are added to the end of the constraint list.
+
+\infrule[U-Accessor]
+  {T_1 = T_1^1\#T_1^2 \andalso T_2 = T_2^1\#T_2^2\\
+  C' = \{T_1^1 = T_2^1, T_1^2 = T_2^2 \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+\infrule[U-Fn]
+  {T_1 = T_1^1 \rightarrow T_1^2 \andalso T_2 = T_2^1 \rightarrow T_2^2\\
+  C' = \{T_1^1 = T_2^1, T_1^2 = T_2^2 \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+\infrule[U-Record]
+  {T_1 = \{l_1: T_1^1, \; \dots \; l_n: T_1^n\} \andalso T_2 = \{l_1: T_2^1, \; \dots \; l_n: T_2^n\}\\
+  C' = \{T_1^1 = T_2^1, \; \dots \; T_1^n = T_2^n \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+For applied constructor types, it is also necessary to verify that the constructor types themselves are equal.
+If not, the unification fails.
+
+\infrule[U-Cons]
+  {T_1 = conT_1 \; T_1^1, \; \dots \; T_1^n \andalso T_2 = conT_2 \; T_2^1, \; \dots \; T_2^n\\
+  conT_1 = conT_2 \andalso C' = \{T_1^1 = T_2^1, \; \dots \; T_1^n = T_2^n \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+\subparagraph{Type Variables}
+
+\infrule[U-Var1]
+  {T_1 = X^{Traits} \andalso X \notin free(T_2)\\
+  \gamma \vdash \mathcal{U}(C) = \sigma}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \{X \rightarrow T_2\} \cup \sigma}
+
+\infrule[U-Var2]
+  {T_2 = X^{Traits} \andalso X \notin free(T_1)\\
+  \gamma \vdash \mathcal{U}(C) = \sigma}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \{X \rightarrow T_1\} \cup \sigma}
+
+
+
 \paragraph{Substitution}
 
 The result of applying the unification algorithm is a substitution $\sigma$.
@@ -308,7 +367,7 @@ A substitution is a mapping from type variables to types.
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-\sigma &::=  &\{\} \; | \; \{X \rightarrow T\} \cup \sigma\\
+\sigma &::=  & \emptyset \; | \; \{X \rightarrow T\} \cup \sigma\\
 \end{tabular}}
 
 \subsubsection{Application}\label{Application}
