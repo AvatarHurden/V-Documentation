@@ -346,17 +346,17 @@ If not, the unification fails.
 
 \subparagraph{Type Variables}
 
-\infrule[U-Var1]
+When unifying a constraint that contains a type variable, a more complicated process of unification is necessary.
+
+First, the type variable must not be contained in the free variables of its paired type, ensuring that the types are not circular.
+Then, the type $T_2$ must conform to the type variable's traits, and this process might create additional constraints that must be unified.
+These newly created constraints, along with the remaining constraints, are then unified after having every occurrence of $X$ replaced with the type $T_2$.
+
+\infrule[U-Var]
   {T_1 = X^{Traits} \andalso X \notin free(T_2)\\
-  \gamma \vdash \mathcal{U}(C) = \sigma}
+  T_2 \in Traits \rightarrow C_T \andalso C' = C \cup C_T\\
+  \gamma \vdash \mathcal{U}(C'[X \rightarrow T_2]) = \sigma}
   {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \{X \rightarrow T_2\} \cup \sigma}
-
-\infrule[U-Var2]
-  {T_2 = X^{Traits} \andalso X \notin free(T_1)\\
-  \gamma \vdash \mathcal{U}(C) = \sigma}
-  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \{X \rightarrow T_1\} \cup \sigma}
-
-
 
 \paragraph{Substitution}
 
