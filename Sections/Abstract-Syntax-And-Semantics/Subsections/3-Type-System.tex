@@ -2,319 +2,461 @@
 
 \usepackage{style}
 \usepackage{standalone}
+\usepackage{import}
 
 \begin{document}
 
 \subsection{Type System}\label{Type System}
 
-$V$ has a strong and static type inference system that checks a program to decide whether or not it is "`well-typed"'.
-If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $V$.
-As a side-effect of checking the validity of a program, the type system can also provide the actual type of any implicitly typed expression down to its basic types, be those concrete types or variable types.
+Like many programming languages, $V$ has a type system.
+A type system is a way of statically analyzing programs to decide whether they are well-formed or not.
+To do this, every expression in the abstract syntax tree has, associated with it, type information.
 
-\subsubsection{Polymorphism}\label{Polymorphism}
+Typing rules are then used to check that a program is correctly constructed.
+If a program passes the type system, guarantees are made about its execution.
+$V$'s type system is not \emph{secure} in the sense that correctly typed programs will always have correct execution.
 
-$V$ has support for parametric Damas\hyp Milner polymorphism.
-This means that functions can have their types be defined with universal quantifiers, allowing their use with any type.
-
-For instance, take the function $count$, which counts the number of elements in a list.
-This function can be defined as follows:
-
-\smallskip
-
-\code{let count = rec count x $\Rightarrow$ if isempty x then 0 else 1 + count (tl x) in}
-
-\code{count (3::4::nil)}
+Examples of programs that pass the type system but fail to execute are division by zero and accessing the head of an empty list.
+In general, however, these errors are caused by incomplete pattern matching on algebraic data types, and most errors are still caught by the type system.
 
 \smallskip
 
-In this situation, $count$ can be used with a list of any type, not only Int.
-To allow this, its identifier ($count$) must have a universal association in the environment, defined as so:
+$V$'s type system is a Hindley\hyp Milner style type system, with support for implicit type annotations and let polymorphism.
+Furthermore, \emph{traits} allow ad-hoc polymorphism and, used with records, a kind of structural subtyping (more details will be provided later).
 
-\smallskip
-$\forall x. \; x \; list \rightarrow \mbox{Int}$
-\smallskip
+\paragraph{The Type Inference Algorithm}
 
-The universal quantifier $\forall x$ allows the type variable $x$ to be substituted for any concrete type when the function is called.
-When creating a polymorphic type, the type system must identify which type variables are free in the function type and which are bound in the environment.
-This process guarantees that a polymorphic type only universally quantifies those type variables that are not already bound, while still allowing all free variables to be instantiated when the function is called.
+Since $V$ allows implicitly typed expressions (that is, expressions without any type annotations provided by the programmer), it is necessary to infer, and not only check, the type of expressions.
+A constraint-based inference system is used, which divides the algorithm into three parts: constraint collection, in which the abstract syntax tree is traversed and both a type and a list of type equality constraints is generated; constraint unification, in which the list of constraints is condensed into a type substitution; and substitution application, which applies the substitution to the type to obtain a principle type.
 
-\subsubsection{Traits}
+\subsubsection{Constraint Collection}
 
-Traits are characteristics that a type can have, defining behaviors expected of that type.
-Some expressions are polymorphic in a sense that they accept certain types for their operators, but not any type.
+The first step of the type inference algorithm is the collection of type constraints.
+A type constraint is an equality between two types, and so the result of the constraint collection is a system of equations.
 
-\subsubsection{Type Inference System}
+The constraint collection algorithm takes, as input, an expression $e$ and a typing environment $\Gamma$ (defined below), and produces, as an output, a type $T$, a set of constraints $C$ and a unification environment $\gamma$ (defined in \ref{UnificationEnv}).
+The algorithm is given as a set of rules of the form:
 
-The type inference system is composed of two basic parts:
-\begin{itemize}
-  \item Constraint Collection
-  \item Constraint Unification
-\end{itemize}
+\infax[T]
+  {\Gamma \vdash e : T \; | \; C \; | \; \gamma}
 
-Constraints are equations between type expressions, which can have both constant types and variable types.
-To infer the type of a program, the type system recursively collects a set of constraints for every subexpression in that program.
-This is done in a static way across the expression tree from the nodes to the root, without having to evaluate any of the expressions.
-To create a valid set of constraints, the system must contain an environment, built from the root to the nodes, to ensure identifiers are properly typed.
+\paragraph{Constraints}
+
+As described above, a set of constraints $C$ is composed of equalities between two types.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+C &:: = & \emptyset \; | \; \{T_1 = T_2\} \cup C
+\end{tabular}}
 
 \paragraph{Environment}
-Just like the operational semantics, the type system also uses an environment to store information about identifiers.
-In this case, the environment maps identifiers to type associations.
-These can be either simple associations or universal associations, which are used for polymorphic functions.
 
-\paragraph{Simple Associations}
-These associate an identifier with a unique type, which can be either constant or a variable type.
-When the association is called, the type is returned as-is, even if it is a variable type.
+The type inference environment is a 2-tuple with the following components:
 
-\paragraph{Universal Associations}
-This association, also called a type scheme, stores a type which contains at least one variable type bound by a ``for all'' quantifier ($\forall$).
-When called, this association creates a new variable type for each bound variable and returns a new instance of the type scheme.
-Universal associations are used exclusively for polymorphic functions.
+\begin{enumerate}
+  \item Mapping between constructors and their type
 
-To create this type of association, the type system must generate a list of ``free variables'' present in the type that is to be universalized.
-These are the variable types that are not present in the environment when the identifier is declared.
-When these free variables are found, they are universally bound.
-This ensures that only those variable types that are unbound in the environment become universally bound in the resulting association.
+    Every constructor has a type associated with it.
+    This type will be a function if the constructor has arity greater than 0, and can contain variable types.
 
-\paragraph{Constraint Unification}
+  \item Mapping between identifiers and type associations
 
-After collecting every type constraint for the program, the type inference system attempts to unify these constraints and find a solution for them.
-This solution comes in the form of type substitutions, which associate variable types to other types, and type traits, which associate variable types to sets of traits.
+    An identifier can be either simply or universally bound to a type.
+    The difference between these associations will be explained later.
+\end{enumerate}
 
-If the constraints cannot be unified - that is, if a conflict is found -, the program is deemed not well-typed.
-Because of how the collection and unification process works, little information is given about where the problem ocurred.
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+\Gamma &::= &(constructors, vars)\\
+\\
+constructors &:: = &\{\} \; | \; \{con \rightarrow T\} \cup constructors\\
+vars &:: = &\{\} \; | \; \{x \rightarrow assoc\} \cup vars\\
+\\
+assoc &::= &T &(\text{Simple Association})\\
+    &| &\forall X_1, \dots X_n \; . \; T &(\text{Universal Association})\\
+\end{tabular}}
 
-\paragraph{Unification Application}
+\paragraph{Type Associations}
 
-After obtaining a valid solution to the set of constraints, the type inference system applies the substitution to the type of the program.
-This is done recursively until no more substitutions are found, resulting in what is called the principal type.
-If there are any variable types in the principal type, the traits are applied to them, restricting the set of types that the variable types can represent.
+When identifiers are bound in a program (with pattern matching, for example), an association between the identifier and its type is added to the typing environment.
+Depending on the type of binding, however, this association can be one of two types: simple or universal.
+
+A simple association binds a name to a monomorphic type.
+This type can "simple", such as $\text{Int}$, or it can contain variable types, such as $X \rightarrow \text{Bool}$.
+In either case, however, the type is "constant", and it is returned unchanged from the environment.
+
+A universal association binds a name to a type scheme.
+A type scheme is composed of a type $T$ and any number of type variables $X_1, \cdots X_n$.
+These variables are free in the type $T$, and a new instance of them is generated every time the association is returned from the environment.
+
+Universal associations allow for polymorphic functions in the language, so each use of the function does not add constraints to other uses.
+The only expressions that create universal associations are let-expressions.
+This means that function parameters cannot be polymorphic, since function parameters are bound to simple type associations.
+
+\paragraph{Free Variables}
+
+Type variables can either be bound or free relative to an environment.
+Bound variable types are those that are associated to an identifier.
+This association must be a simple association, but the variable type can occur anywhere in the type tree.
+As an example, the type variable $X_1$ is bound in the environment below:
+
+$$\Gamma = \{x \rightarrow (Int, X_1, Char)\}$$
+
+Inversely, free type variables are all those that do not occur bound in the environment.
+
+\medskip
+
+A helper function, $\Gamma \vdash free(T)$, returns the set of all free type variables in the type $T$.
+Another function, $\Gamma \vdash fresh(T)$, returns a type $T'$ in which all free type variables in $T$ are replaced by new, unbound type variables.
+Both of these functions require an environment $\Gamma$ with which to judge whether type variables are free or not.
 
 \paragraph{Pattern Matching}
 
-When a pattern is encountered (such as a \texttt{let} expression or function declaration), it is necessary to match the type of the pattern with the value.
+One way to bind identifiers is by pattern matching.
+When a pattern is encountered (such as a \texttt{let} expression), it is necessary to match the type of the pattern with the type of the value.
 
-To do this, a ``match'' function is defined.
-It takes a pattern $p$ and a type $T$, returning a list of constraints and a mapping of identifiers to associations.
+To do this, two auxiliary \emph{match} functions are defined.
+Both take, as input, a pattern $p$ and a type $T$, returning a list of constraints and a modified typing environment.
 
-The following are the rules for the ``match'' function:
+The first of the functions, $match$, only creates simple type associations and is used in \texttt{match} expressions.
+The second, $match_U$, can create both simple and universal associations, being used in \texttt{let} expressions.
 
-\infax[]
-    {match(x, T) = \{\}, \{x \rightarrow T\}}
-
-\infax[]
-    {match(x: T_1, T_2) = \{T_1 = T_2\}, \{x \rightarrow T_1\}}
+The following are the rules for the $match$ function:
 
 \infax[]
-    {match(n, T) = \{T = Int\}, \{\}}
+    {\Gamma \vdash match(x, T) = \{\}, \{x \rightarrow T\} \cup \Gamma}
 
 \infax[]
-    {match(n: T_1, T_2) = \{T_1 = Int, T_2 = Int\}, \{\}}
+    {\Gamma \vdash match(x: T_{pat}, T) = \{T_{pat} = T\}, \{x \rightarrow T\} \cup \Gamma}
 
 \infax[]
-    {match(b, T) = \{T = Bool\}, \{\}}
+    {\Gamma \vdash match(\_, T) = \{\}, \Gamma}
 
 \infax[]
-    {match(b: T_1, T_2) = \{T_1 = Bool, T_2 = Bool\}, \{\}}
-
-\infax[]
-    {match(c, T) = \{T = Char\}, \{\}}
-
-\infax[]
-    {match(c: T_1, T_2) = \{T_1 = Char, T_2 = Char\}, \{\}}
-
-\infax[]
-    {match(_, T) = \{\}, \{\}}
-
-\infax[]
-    {match(_: T_1, T_2) = \{T_1 = T_2\}, \{\}}
+    {\Gamma \vdash match(\_: T_{pat}, T) = \{T_{pat} = T\}, \Gamma}
 
 \smallskip
 
 \infrule[]
-    {X_1 \; is \; new}
-    {match(nil, T) = \{X_1 list = T\}, \{\}}
+    {\Gamma(con) = T' \andalso \Gamma \vdash fresh(T') = T''\\
+    T'' = T_1 \rightarrow \cdots \rightarrow T_n \andalso \Gamma_0 = \Gamma\\
+    \forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash match(p_i, T_i) = C_i, \Gamma_i}
+    {\Gamma \vdash match(con \; p_1, \; \dots \; p_n, T) = \{T_n = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
 
 \infrule[]
-    {X_1 \; is \; new}
-    {match(nil: T_1, T_2) = \{X_1 list = T_1, T_1 = T_2\}, \{\}}
+    {\Gamma(con) = T' \andalso \Gamma \vdash fresh(T') = T''\\
+    T'' = T_1 \rightarrow \cdots \rightarrow T_n \andalso \Gamma_0 = \Gamma\\
+    \forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash match(p_i, T_i) = C_i, \Gamma_i}
+    {\Gamma \vdash match(con \; p_1, \; \dots \; p_n : T_{pat}, T) = \{T_{pat} = T, T_n = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash fresh(X) = X_i \wedge \Gamma_{i-1} \vdash match(p_i, X_i) = C_i, \Gamma_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}, T) = \{\{l_1: X_1, \dots, l_n: X_n\} = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash fresh(X) = X_i \wedge \Gamma_{i-1} \vdash match(p_i, X_i) = C_i, \Gamma_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}: T_{pat}, T) = \{\{l_1: X_1, \dots, l_n: X_n\} = T, T_{pat} = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash fresh(X) = X_i \wedge \Gamma_{i-1} \vdash match(p_i, X_i) = C_i, \Gamma_i \andalso X_0^{\{\{l_i: X_i\}, \dots \{l_n: X_n\}\}}}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}, T) = \{X_0 = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash fresh(X) = X_i \wedge \Gamma_{i-1} \vdash match(p_i, X_i) = C_i, \Gamma_i \andalso X_0^{\{\{l_i: X_i\}, \dots \{l_n: X_n\}\}}}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}: T_{pat}, T) = \{X_0 = T, T_{pat} = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \Gamma_n}
+
+\medskip
+
+The rules for the $match_U$ are similar, but with a few key differences.
+Since universal matching is always called with a completely unified type in a \texttt{let} expression, certain concessions can be made.
+Furthermore, other differences arise due to the ability for the $match_U$ function to create universal type associations.
+
+Because $match_U$ can create universal associations, it checks for any free variable types in the type $T$.
+If free variable types are found, then a universal association is made based on these variable types.
+If there are no free variable types, a simple association is created instead.
+
+\infrule[]
+    {\Gamma \vdash free(T) = \{\}}
+    {\Gamma \vdash match_U(x, T) = \{\}, \{x \rightarrow T\} \cup \Gamma}
+
+\infrule[]
+    {\Gamma \vdash free(T) = \{X_1, \dots, X_n\}}
+    {\Gamma \vdash match_U(x, T) = \{\}, \{x \rightarrow \forall X_1, \dots X_n \; . \; T\} \cup \Gamma}
+
+\infrule[]
+    {\Gamma \vdash free(T) = \{\}}
+    {\Gamma \vdash match_U(x: T_{pat}, T) = \{T_{pat} = T\}, \{x \rightarrow T\} \cup \Gamma}
+
+\infrule[]
+    {\Gamma \vdash free(T) = \{X_1, \dots, X_n\}}
+    {\Gamma \vdash match_U(x: T_{pat}, T) = \{T_{pat} = T\}, \{x \rightarrow \forall X_1, \dots X_n \; . \; T\} \cup \Gamma}
+
+\infax[]
+    {\Gamma \vdash match_U(\_, T) = \{\}, \Gamma}
+
+\infax[]
+    {\Gamma \vdash match_U(\_: T_{pat}, T) = \{T_{pat} = T\}, \Gamma}
 
 \smallskip
 
-\infrule[]
-    {X_1 \; is \; new \andalso match(p_1, X_1) = c_1, env_1 \andalso match(p_2, X_1 list) = c_2, env_2}
-    {match(p_1 :: p_2, T) = \{X_1 list = T\} \cup c_1 \cup c_2, env_1 \cup env_2}
+The next difference comes when matching against constructor patterns.
+Instead of creating a fresh instance of the type associated with the constructor by replacing all variable types with fresh variable types, the type $T$ (passed as paramenter to $match_U$) is used.
+
+This function is called $\Gamma \vdash rebase(T_1, T_2)$, creating a new instance of $T_1$ based on $T_2$.
+Informally, this means that both the type $T_1$ and $T_2$ are traversed simultaneously and, when a variable type is encountered in $T_1$, it is replaced by the equivalent type in $T_2$.
 
 \infrule[]
-    {X_1 \; is \; new \andalso match(p_1, X_1) = c_1, env_1 \andalso match(p_2, X_1 list) = c_2, env_2}
-    {match(p_1 :: p_2: T_1, T_2) = \{X_1 list = T_1, T_1 = T_2\} \cup c_1 \cup c_2, env_1 \cup env_2}
-
-\smallskip
-
-\infrule[]
-    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
-    {match((p_1, ... p_n), T) = \{(X_i, ... X_n) = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+    {\Gamma(con) = T' \andalso \Gamma \vdash rebase(T', T) = T''\\
+    T'' = T_1 \rightarrow \cdots \rightarrow T_n \andalso \Gamma_0 = \Gamma\\
+    \forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash match_U(p_i, T_i) = C_i, \Gamma_i}
+    {\Gamma \vdash match_U(con \; p_1, \; \dots \; p_n, T) = \{T_n = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
 
 \infrule[]
-    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
-    {match((p_1, ... p_n): T_1, T_2) = \{(X_i, ... X_n) = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+    {\Gamma(con) = T' \andalso \Gamma \vdash rebase(T', T) = T''\\
+    T'' = T_1 \rightarrow \cdots \rightarrow T_n \andalso \Gamma_0 = \Gamma\\
+    \forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash match_U(p_i, T_i) = C_i, \Gamma_i}
+    {\Gamma \vdash match_U(con \; p_1, \; \dots \; p_n : T_{pat}, T) = \{T_{pat} = T, T_n = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
 
-\smallskip
-
-\infrule[]
-    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i \andalso X_0^{\{\{l_i: X_i\}\} \forall i \in \left[1, n\right]}}
-    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}, T) = \{X_0 = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
-
-\infrule[]
-    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i \andalso X_0^{\{\{l_i: X_i\}\} \forall i \in \left[1, n\right]}}
-    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}: T_1, T_2) = \{X_0 = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+Finally, pattern matching on records in also slightly different.
+For complete record patterns, we know that the type $T$ is a record type with the necessary fields, and so the matching rule becomes much smaller.
 
 \infrule[]
-    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
-    {match(\{l_1: p_1, \dots, l_n: p_n\}, T) = \{\{l_1: X_1, \dots, l_n: X_n\} = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+    {T = \{l_1: T_1, \dots, l_n: T_n\}\\
+    \forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash match_U(p_i, T_i) = C_i, \Gamma_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}, T) = \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
 
 \infrule[]
-    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
-    {match(\{l_1: p_1, \dots, l_n: p_n\}: T_1, T_2) = \{\{l_1: X_1, \dots, l_n: X_n\} = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+    {T = \{l_1: T_1, \dots, l_n: T_n\}\\
+    \forall i \in \left[1, n\right] \; \; \Gamma_{i-1} \vdash match(p_i, T_i) = C_i, \Gamma_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}: T_{pat}, T) = \{T_{pat} = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
+
+\medskip
+
+For partial record patterns, however, a little more care must be taken.
+Since there may be fewer fields in the pattern than the type, a search must be done to match the correct sub-patterns with the sub-types.
+
+\infrule[]
+    {T = \{l'_1: T_1, \dots, l'_k: T_k\}\\
+    k \geq n \andalso \forall \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l_i = l'_j \wedge \Gamma_{i-1} \vdash match(p_i, T_j) = C_i, \Gamma_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}, T) = \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
+
+\infrule[]
+    {T = \{l'_1: T_1, \dots, l'_k: T_k\}\\
+    k \geq n \andalso \forall \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l_i = l'_j \wedge \Gamma_{i-1} \vdash match(p_i, T_j) = C_i, \Gamma_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}: T_{pat}, T) = \{T_{pat} = T\} \cup \displaystyle \bigcup_{i=1}^{n} C_i, \Gamma_n}
 
 \paragraph{Constraint Collection Rules}
 Every expression in $V$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
 
-\infax[T-Num]
-    {\Gamma \vdash n : \mbox{Int} \; | \; \{\}}
+If a rule does not create any constraints or unification environment (i.e. they are both empty), then these will be omited to improve readability.
+As an example, the following rule:
 
-\infax[T-Bool]
-    {\Gamma \vdash b : \mbox{Bool} \; | \; \{\}}
+\infax[T-+]
+    {\Gamma \vdash + : \mbox{Int} \rightarrow \mbox{Int} \rightarrow \mbox{Int} \; | \; \{\} \; | \; \{\}}
 
-\infax[T-Char]
-    {\Gamma \vdash c : \mbox{Char} \; | \; \{\}}
+will be written as:
 
-\infrule[T-Ident]
-    {\Gamma \left(x\right) = T}
-    {\Gamma \vdash x : T \; | \; \{\}}
+\infax[T-+]
+    {\Gamma \vdash + : \mbox{Int} \rightarrow \mbox{Int} \rightarrow \mbox{Int}}
 
-\bigskip
+\import{}{3.1-CollectionRules}
 
-\infrule[T-Tuple]
-    {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
-    {\Gamma \vdash (e_1, \; \dots \; e_n) : (T_1, \; \dots \; T_n) \; | \; C_1 \cup \cdots C_n }
+\subsubsection{Unification}\label{Unification}
 
-\bigskip
+After constraint collection, the second step in the type inference algorithm is unification.
+Unification attempts to solve the set of equalities defined by the constraints collected in the previous step.
 
-\infrule[T-Record]
-    {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
-    {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; C_1 \cup \cdots C_n }
+The algorithm takes, as input, a set of constraints $C$ and a unification environment $\gamma$, and produces a substitution $\sigma$ as output.
+The algorithm is given as a set of rules following the form:
 
-\infrule[T-RecordAccess]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{\{l: T_1\}\}} \; is \; new}
-    {\Gamma \vdash \#l \; e_1 \; e_2 : (T_1, T_2) \; | \; C_1 \cup C_2 \cup \{X_1 = T_2\}}
+\infax[U]
+  {\gamma \vdash \mathcal{U}(C) = \sigma}
 
-\bigskip
+\paragraph{Unification Environment}\label{UnificationEnv}
 
-\infrule[T-Nil]
-    {X_1 \; is\; new}
-    {\Gamma \vdash nil : X_1 \; list \; | \; \{\}}
+The unification environment is a set of trait specifications.
+Trait specifications are 3-tuples that define the requirements for a specific type to conform to a specific trait.
 
-\infrule[T-List]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2\; | \; C_2}
-    {\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; C_1 \cup C_2 \cup \{T_1 \; list = T_2\}}
-
-\bigskip
-
-\infrule[T-+]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 + e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
-
-\infrule[T--]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 - e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
-
-\infrule[T-$\ast$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 * e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
-
-\infrule[T-$\div$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 \div e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
-
-\bigskip
-
-\infrule[T-$=$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Equatable\}} \; is \; new}
-    {\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Equatable\}} = T_2\}}
-
-\infrule[T-$\neq$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Equatable\}} \; is \; new}
-    {\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Equatable\}} = T_2\}}
-
-\bigskip
-
-\infrule[T-$<$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
-    {\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
-
-\infrule[T-$\leq$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
-    {\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
-
-\infrule[T-$>$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
-    {\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
-
-\infrule[T-$\geq$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
-    {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
-
-\bigskip
-
-\infrule[T-App]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso X_1 \; is \; new}
-    {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow X_1}
-
-\bigskip
-
-\infrule[T-Fn]
-    {X \; is \; new \andalso match(p, X) = C, env \andalso env \cup \Gamma \vdash e : T_1 \; | \; C_1}
-    {\Gamma \vdash \texttt{fn} \; p \Rightarrow e : X \rightarrow T_1 \; | \; C \cup C_1}
-
-\infrule[T-Rec]
-    {X \; is \; new \andalso match(p, X) = C, env\\
-    \{x \rightarrow (X \rightarrow T)\} \cup env \cup \Gamma \vdash e : T_1 \; | \; C_1}
-    {\Gamma \vdash \texttt{rec} \; x:T \; \; p \Rightarrow e : X \rightarrow T_1 \; | \; C \cup C_1 \cup \{T_1 = T\}}
-
-\infrule[T-Rec2]
-    {X_1 \; is \; new \andalso X_2 \; is \; new \andalso match(p, X_1) = C, env\\
-     \{x \rightarrow X_2\} \cup env \cup \Gamma \vdash e : T_1 | C_1}
-    {\Gamma \vdash \texttt{rec} \; x \; p \Rightarrow e : X_1 \rightarrow T_1 \; | \; C \cup C_1 \cup \{X_2 = X_1 \rightarrow T_1\}}
-
-\bigskip
-
-\infrule[T-Let]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso match(p, T_1) = C, env\\
-    env \cup \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 : T_2 \; | \; C \cup C_1 \cup C_2}
-
-\bigskip
-
-\infrule[T-Match]
-    {\Gamma \vdash e : T \; | \; C \andalso X_1 \; is \; new\\
-    \forall j \in \left[1..n\right] multiMatch(T, X_1, \Gamma, match_j) = C_j}
-    {\Gamma \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n : X_1 \; | \; C \cup \displaystyle \bigcup_{i=1}^{n} C_i}
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+\gamma &::=  &\{\} \; | \; \{\text{trtSpec}\} \cup \gamma\\
+\\
+\text{trtSpec} &::= &(conT, Trait, [Traits_1, \dots Traits_n]) &(n = \text{arity} \; conT)\\
+\end{tabular}}
 
 \medskip
 
-\infrule[]
-  {match(p, T_1) = C, \Gamma_1 \andalso \Gamma_1 \cup \Gamma \vdash e : T_3 \; | \; C_3}
-  {multiMatch(T_1, T_2, \Gamma, p \rightarrow e) = C \cup C_3 \cup \{T_3 = T_2\}}
+A trait specification describes conformance to a trait.
+Some types, such as records and functions, have their trait conformance built into the language, and it is not necessary to use the unification environment to decide conformance.
+For a constructor type $conT \; T_1, \; \dots \; T_n$ to conform to a trait $Trait$, however, the following criteria must hold:
 
-\infrule[]
-  {match(p, T_1) = C, \Gamma_1 \andalso \Gamma_1 \cup \Gamma \vdash e_1 : T_3 \; | \; C_3 \andalso \Gamma_1 \cup \Gamma \vdash e_2 : T_4 \; | \; C_4}
-  {multiMatch(T_1, T_2, \Gamma, p \; \mbox{when} \; e_1 \rightarrow e_2) = C \cup C_3 \cup C_4 \cup \{T_3 = Bool, T_4 = T_2}
+\begin{enumerate}
+  \item There exists a trait specification $(conT, Trait, [Traits_1, \dots Traits_n])$ in the unification environment
+  \item For all $i \in [1, n], \; T_i \in Traits_i$
+\end{enumerate}
 
+This will be formally defined in the unification algorithm itself, but these are the general rules that govern trait conformance.
 
-\bigskip
+\paragraph{Unification Rules}
 
-\infrule[T-Raise]
-    {X_1 \; is\; new}
-    {\Gamma \vdash raise : X_1 \; | \; \{\}}
+Unification iterates through the list of constraints, always operating on the first constraint in the list and recursing on the remaining constraints.
+Because of this format, it can be defined as a base case and recursion rules.
+
+\subparagraph{Base Cases}
+
+The basic case, with an empty constraint list, returns an empty substitution.
+
+\infax[U-Empty]
+  {\gamma \vdash \mathcal{U}(\emptyset) = \emptyset}
+
+If both types of a constraint are equal, they are discarded and the recursion is called.
+
+\infrule[U-Equals]
+  {T_1 = T_2}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C) = \sigma}
+
+\subparagraph{Compound Types}
+
+When encountered, compound types are destructured and equality constraints with their corresponding components are added to the end of the constraint list.
+
+\infrule[U-Accessor]
+  {T_1 = T_1^1\#T_1^2 \andalso T_2 = T_2^1\#T_2^2\\
+  C' = \{T_1^1 = T_2^1, T_1^2 = T_2^2 \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+\infrule[U-Fn]
+  {T_1 = T_1^1 \rightarrow T_1^2 \andalso T_2 = T_2^1 \rightarrow T_2^2\\
+  C' = \{T_1^1 = T_2^1, T_1^2 = T_2^2 \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+\infrule[U-Record]
+  {T_1 = \{l_1: T_1^1, \; \dots \; l_n: T_1^n\} \andalso T_2 = \{l_1: T_2^1, \; \dots \; l_n: T_2^n\}\\
+  C' = \{T_1^1 = T_2^1, \; \dots \; T_1^n = T_2^n \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+For applied constructor types, it is also necessary to verify that the constructor types themselves are equal.
+If not, the unification fails.
+
+\infrule[U-Cons]
+  {T_1 = conT_1 \; T_1^1, \; \dots \; T_1^n \andalso T_2 = conT_2 \; T_2^1, \; \dots \; T_2^n\\
+  conT_1 = conT_2 \andalso C' = \{T_1^1 = T_2^1, \; \dots \; T_1^n = T_2^n \}}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \gamma \vdash \mathcal{U}(C \cup C')}
+
+\subparagraph{Type Variables}
+
+When unifying a constraint that contains a type variable, a more complicated process of unification is necessary.
+
+First, the type variable must not be contained in the free variables of its paired type, ensuring that the types are not circular.
+Then, the type $T_2$ must conform to the type variable's traits, and this process might create additional constraints that must be unified.
+These newly created constraints, along with the remaining constraints, are then unified after having every occurrence of $X$ replaced with the type $T_2$.
+
+\infrule[U-Var]
+  {T_1 = X^{Traits} \andalso X \notin free(T_2)\\
+  T_2 \in Traits \rightarrow C_T \andalso C' = C \cup C_T\\
+  \gamma \vdash \mathcal{U}(C'[X \rightarrow T_2]) = \sigma}
+  {\gamma \vdash \mathcal{U}(\{T_1 = T_2\} \cup C) = \{X \rightarrow T_2\} \cup \sigma}
+
+\paragraph{Substitution}
+
+The result of applying the unification algorithm is a substitution $\sigma$.
+A substitution is a mapping from type variables to types.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+\sigma &::=  & \emptyset \; | \; \{X \rightarrow T\} \cup \sigma\\
+\end{tabular}}
+
+\subsubsection{Application}\label{Application}
+
+The last component of the type inference algorithm is the application of a type substitution.
+This replaces all type variables that are specified by the substitution, resulting in a new instance of the input type.
+
+Application takes, as input, a type $T$ and a substitution $\sigma$, producing another type $T'$ as output.
+It is defined with rules of the form:
+
+\infax[A]
+  {\sigma(T) = T'}
+
+% \subsubsection{Polymorphism}\label{Polymorphism}
+%
+% $V$ has support for parametric Damas\hyp Milner polymorphism.
+% This means that functions can have their types be defined with universal quantifiers, allowing their use with any type.
+%
+% For instance, take the function $count$, which counts the number of elements in a list.
+% This function can be defined as follows:
+%
+% \smallskip
+%
+% \code{let count = rec count x $\Rightarrow$ if isempty x then 0 else 1 + count (tl x) in}
+%
+% \code{count (3::4::nil)}
+%
+% \smallskip
+%
+% In this situation, $count$ can be used with a list of any type, not only Int.
+% To allow this, its identifier ($count$) must have a universal association in the environment, defined as so:
+%
+% \smallskip
+% $\forall x. \; x \; list \rightarrow \mbox{Int}$
+% \smallskip
+%
+% The universal quantifier $\forall x$ allows the type variable $x$ to be substituted for any concrete type when the function is called.
+% When creating a polymorphic type, the type system must identify which type variables are free in the function type and which are bound in the environment.
+% This process guarantees that a polymorphic type only universally quantifies those type variables that are not already bound, while still allowing all free variables to be instantiated when the function is called.
+%
+% \subsubsection{Traits}
+%
+% Traits are characteristics that a type can have, defining behaviors expected of that type.
+% Some expressions are polymorphic in a sense that they accept certain types for their operators, but not any type.
+%
+% \subsubsection{Type Inference System}
+%
+% The type inference system is composed of two basic parts:
+% \begin{itemize}
+%   \item Constraint Collection
+%   \item Constraint Unification
+% \end{itemize}
+%
+% Constraints are equations between type expressions, which can have both constant types and variable types.
+% To infer the type of a program, the type system recursively collects a set of constraints for every subexpression in that program.
+% This is done in a static way across the expression tree from the nodes to the root, without having to evaluate any of the expressions.
+% To create a valid set of constraints, the system must contain an environment, built from the root to the nodes, to ensure identifiers are properly typed.
+%
+% \paragraph{Environment}
+% Just like the operational semantics, the type system also uses an environment to store information about identifiers.
+% In this case, the environment maps identifiers to type associations.
+% These can be either simple associations or universal associations, which are used for polymorphic functions.
+%
+% \paragraph{Simple Associations}
+% These associate an identifier with a unique type, which can be either constant or a variable type.
+% When the association is called, the type is returned as-is, even if it is a variable type.
+%
+% \paragraph{Universal Associations}
+% This association, also called a type scheme, stores a type which contains at least one variable type bound by a ``for all'' quantifier ($\forall$).
+% When called, this association creates a new variable type for each bound variable and returns a new instance of the type scheme.
+% Universal associations are used exclusively for polymorphic functions.
+%
+% To create this type of association, the type system must generate a list of ``free variables'' present in the type that is to be universalized.
+% These are the variable types that are not present in the environment when the identifier is declared.
+% When these free variables are found, they are universally bound.
+% This ensures that only those variable types that are unbound in the environment become universally bound in the resulting association.
+%
+% \paragraph{Constraint Unification}
+%
+% After collecting every type constraint for the program, the type inference system attempts to unify these constraints and find a solution for them.
+% This solution comes in the form of type substitutions, which associate variable types to other types, and type traits, which associate variable types to sets of traits.
+%
+% If the constraints cannot be unified - that is, if a conflict is found -, the program is deemed not well-typed.
+% Because of how the collection and unification process works, little information is given about where the problem ocurred.
+%
+% \paragraph{Unification Application}
+%
+% After obtaining a valid solution to the set of constraints, the type inference system applies the substitution to the type of the program.
+% This is done recursively until no more substitutions are found, resulting in what is called the principal type.
+% If there are any variable types in the principal type, the traits are applied to them, restricting the set of types that the variable types can represent.
 
 \end{document}

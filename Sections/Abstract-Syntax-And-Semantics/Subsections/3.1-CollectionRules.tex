@@ -1,0 +1,237 @@
+\documentclass[class=article, crop=false]{standalone}
+
+\usepackage{style}
+\usepackage{standalone}
+
+\begin{document}
+
+\paragraph{Functions}
+
+The rules for function expressions are all similar, though with a few differences between them.
+All of them create a fresh type variable $X_1$ to represent the type of their argument, and the resulting type is always $X_1 \rightarrow T_1$, where $T_1$ is the type of the body of the function.
+
+When calling the collection algorithm on the body of the function (i.e. $e$), the typing environment $\Gamma$ is modified by addind a new association between the identifier $x$ and the type $X_1$.
+
+\infrule[T-Fn]
+    {\Gamma \vdash fresh(X) = X_1 \andalso \{x \rightarrow X_1\} \cup \Gamma \vdash e : T_1 \; | \; C_1 \; | \; \gamma_1}
+    {\Gamma \vdash \texttt{fn} \; x \Rightarrow e : X_1 \rightarrow T_1 \; | \; C_1 \; | \; \gamma_1}
+
+
+Recursive functions add the same association between $x$ and $X_1$, but they also create a new association for the name of the function, $f$.
+If the function is implicitly typed, a new type variable, $X_2$, is used to represent the type of the function.
+Thus, $f$ is associated to $X_2$, and a new constraint between $X_2$ and $X_1 \rightarrow T_1$ is created.
+
+\infrule[T-Rec]
+    {\Gamma \vdash fresh(X) = X_1 \andalso \Gamma \vdash fresh(X) = X_2\\
+    \{f \rightarrow X_2, x \rightarrow X_1\} \cup \Gamma \vdash e : T_1 | C_1 \; | \; \gamma_1}
+    {\Gamma \vdash \texttt{rec} \; f \; x \Rightarrow e : X_1 \rightarrow T_1 \; | \; C_1 \cup \{X_2 = X_1 \rightarrow T_1\} \; | \; \gamma_1}
+
+If the function is explicitly typed, however, no new type variables are created.
+Instead, $f$ is associated directly to $X_1 \rightarrow T$, and a constraint to guarantee that the provided type is correct is created (that is, that $T$ is equal to $T_1$).
+
+\infrule[T-Rec2]
+    {\Gamma \vdash fresh(X) = X_1 \andalso \{f \rightarrow (X_1 \rightarrow T, x \rightarrow X_1)\} \cup \Gamma \vdash e : T_1 \; | \; C_1 \; | \; \gamma_1}
+    {\Gamma \vdash \texttt{rec} \; f:T \; \; x \Rightarrow e : X \rightarrow T_1 \; | \; C_1 \cup \{T_1 = T\} \; | \; \gamma_1}
+
+\paragraph{Built-in Functions}
+
+None of the built-in functions create any constraints or unification environment, nor do their types depend on a typing environment.
+Some functions, because of their polymorphic nature, require creation of fresh type variables.
+
+\subparagraph{Numerical Functions}
+
+These functions all manipulate Int values, with negate ($-$) being the only function with a single argument.
+
+\infax[T-+]
+    {\Gamma \vdash + : \mbox{Int} \rightarrow \mbox{Int} \rightarrow \mbox{Int} \;}
+
+\infax[T--]
+    {\Gamma \vdash - : \mbox{Int} \rightarrow \mbox{Int} \rightarrow \mbox{Int} \;}
+
+\infax[T-*]
+    {\Gamma \vdash * : \mbox{Int} \rightarrow \mbox{Int} \rightarrow \mbox{Int} \;}
+
+\infax[T-$\div$]
+    {\Gamma \vdash \div : \mbox{Int} \rightarrow \mbox{Int} \rightarrow \mbox{Int}}
+
+\infax[T-Negate]
+    {\Gamma \vdash - : \mbox{Int} \rightarrow \mbox{Int}}
+
+\subparagraph{Equality Functions}
+
+These functions do not require a specific type for their arguments, but they both must be equal and conform to the $Equatable$ trait.
+
+\infrule[T-$=$]
+    {\Gamma \vdash fresh(X^{\{Equatable\}}) = T}
+    {\Gamma \vdash = : T \rightarrow T \rightarrow \mbox{Bool}}
+
+\infrule[T-$\neq$]
+    {\Gamma \vdash fresh(X^{\{Equatable\}}) = T}
+    {\Gamma \vdash \neq : T \rightarrow T \rightarrow \mbox{Bool}}
+
+\subparagraph{Inequality Functions}
+
+Similar to equality, both arguments must have the same type and conform to the $Orderable$ trait.
+
+\infrule[T-$<$]
+    {\Gamma \vdash fresh(X^{\{Orderable\}}) = T}
+    {\Gamma \vdash < : T \rightarrow T \rightarrow \mbox{Bool}}
+
+\infrule[T-$\leq$]
+    {\Gamma \vdash fresh(X^{\{Orderable\}}) = T}
+    {\Gamma \vdash \leq : T \rightarrow T \rightarrow \mbox{Bool}}
+
+\infrule[T-$>$]
+    {\Gamma \vdash fresh(X^{\{Orderable\}}) = T}
+    {\Gamma \vdash > : T \rightarrow T \rightarrow \mbox{Bool}}
+
+\infrule[T-$\geq$]
+    {\Gamma \vdash fresh(X^{\{Orderable\}}) = T}
+    {\Gamma \vdash \geq : T \rightarrow T \rightarrow \mbox{Bool}}
+
+\subparagraph{Boolean Functions}
+
+Both functions require two Bool arguments, returning another Bool.
+
+\infax[T-$\vee$]
+    {\Gamma \vdash \vee : \mbox{Bool} \rightarrow \mbox{Bool} \rightarrow \mbox{Bool}}
+
+\infax[T-$\wedge$]
+    {\Gamma \vdash \wedge : \mbox{Bool} \rightarrow \mbox{Bool} \rightarrow \mbox{Bool}}
+
+\subparagraph{Accessor Functions}
+
+These functions manipulate accessors, creating fresh type variables to represent all necessary types.
+
+\infrule[T-get]
+    {\Gamma \vdash fresh(X) = T_1 \andalso \Gamma \vdash fresh(X) = T_2}
+    {\Gamma \vdash \text{get} : T_2\#T_1 \rightarrow T_2 \rightarrow T_1}
+
+\infrule[T-set]
+    {\Gamma \vdash fresh(X) = T_1 \andalso \Gamma \vdash fresh(X) = T_2}
+    {\Gamma \vdash \text{set} : T_2\#T_1 \rightarrow T_1 \rightarrow T_2 \rightarrow T_2}
+
+\infrule[T-stack]
+    {\Gamma \vdash fresh(X) = T_1 \andalso \Gamma \vdash fresh(X) = T_2 \andalso \Gamma \vdash fresh(X) = T_3}
+    {\Gamma \vdash \text{stack} : T_2\#T_1 \rightarrow T_1\#T_3 \rightarrow T_2\#T_3}
+
+\infrule[T-distort]
+    {\Gamma \vdash fresh(X) = T_1 \andalso \Gamma \vdash fresh(X) = T_2 \andalso \Gamma \vdash fresh(X) = T_3}
+    {\Gamma \vdash \text{distort} : T_2\#T_1 \rightarrow (T_1 \rightarrow T_3) \rightarrow (T_3 \rightarrow T_1 \rightarrow T_1) \rightarrow T_2\#T_3}
+
+\paragraph{Constructors}
+
+The rule for typing constructors is very simple.
+The type is extracted from the environment, and then a fresh instance is generated from that type.
+
+\infrule[T-Con]
+    {\Gamma(con) = T \andalso \Gamma \vdash fresh(T) = T'}
+    {\Gamma \vdash con : T'}
+
+\paragraph{Application}
+
+The constraint collection rule for an application is simple, creating just one fresh type variable and one new constraint.
+The type variable $X_1$, represents the type of the result of the application, and, therefore, is the return type of the collection.
+Furthermore, the type of $e_1$, $T_1$, must be equal to a function that takes $T_2$ (the type of $e_2$) as an argument and returns $X_1$.
+
+\infrule[T-App]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \; | \; \gamma_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \; | \; \gamma_2 \andalso \Gamma \vdash fresh(X) = X_1}
+    {\Gamma \vdash e_1 \; e_2 : X_1 \; | \; C_1 \cup C_2 \cup \{T_1 = T_2 \rightarrow X_1\} \; | \; \gamma_1 \cup \gamma_2}
+
+\paragraph{Identifiers}
+
+The type of an identifier is, like for constructors, completely defined by its typing association in the environment.
+The typing rule does not create a fresh instance of this type, since the environment already does this when returning types that are universally bound.
+
+\infrule[T-Ident]
+    {\Gamma \left(x\right) = T}
+    {\Gamma \vdash x : T}
+
+\paragraph{Records}
+
+The constraint collection rule for a record is relatively straightforward.
+Each field of the record is passed through the collection algorithm, and the resulting types are combined into a single record type with their matching labels.
+Similarly, the resulting constraints and unification environments are combined by union.
+
+\infrule[T-Record]
+    {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k \; | \; \gamma_k}
+    {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; \displaystyle \bigcup_{i=1}^{n} C_i \; | \; \displaystyle \bigcup_{i=1}^{n} \gamma_i}
+
+\paragraph{Accessors}
+
+The constraint rules for simple label accessors relies on type variables and record label traits.
+A new fresh type variable, $T_1$, is generated, representing the type of the field being accessed.
+Another new fresh type variable, $T_2$, which must conform to the record label trait associating the label $l$ to the type $T_1$, is generated, representing the type of the record that is being accessed.
+
+\infrule[T-Label]
+    {\Gamma \vdash fresh(X) = T_1 \andalso \Gamma \vdash fresh(X^{\{l: T_1\}}) = T_2}
+    {\Gamma \vdash \#l : T_2\#T_1}
+
+A joined accessor does not use record label traits, but instead relies on type variables and constraints to guarantee the correct type information.
+
+A single type variable $X_0$, represents the record being accessed.
+For every component $e_i$ of the accessor, a new type variable $X_i$ is generated, along with the resulting type $T_i$ of calling the constraint collection algorithm.
+The type $T_i$ is then constrained to be equal to $X_0\#X_i$, indicating that all components refer the same record, but access fields with (possibly) different types.
+
+Finally, the resulting type is an accessor that returns a tuple composed of all $X_i$ when accessing a record of type $X_0$.
+
+\infrule[T-Joined]
+    {fresh(X) = X_0 \andalso \forall \; i \in \left[1, n\right] \; \; \Gamma \vdash fresh(X) = X_i \wedge \Gamma \vdash e_i : T_i \; | \; C_i \; | \; \gamma_i}
+    {\Gamma \vdash \#(e_1, \; \dots \; e_n) : X_0\#(X_i, \; \dots \; X_n) \; | \; \displaystyle \bigcup_{i=1}^{n} C_i \cup \{T_i = X_0\#X_i\} \; | \;  \displaystyle \bigcup_{i=1}^{n} \gamma_i}
+
+\paragraph{Let Expression}
+
+The constraint collection rule for a \texttt{let} expression depends on both the unification and the application algorithms.
+
+The expression $e_1$ is passed through the constraint collection algorithm, resulting in a type $T_1$, a set of constraints $C_1$ and a unification environment $\gamma_1$.
+The constraints $C_1$ are then unified (see \ref{Unification}) under the unification environment $\gamma_1$, resulting in a substitution $\sigma$.
+
+The substitution $\sigma$ is then applied (see \ref{Application}) to the type $T_1$, resulting in a principle type $T_1'$.
+The substitution is also applied to the environment $\Gamma$, and the result of this application is used to evaluate a universal match between $p$ and $T_1'$, resulting in a new set of constraints $C_1'$ and a new typing environment $\Gamma'$.
+
+Finally, the type of the expression $e_2$ is obtained under the environment $\Gamma'$.
+
+\infrule[T-Let]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \; | \; \gamma_1 \andalso \gamma_1 \vdash \mathcal{U}(C_1) = \sigma \andalso \sigma(T_1) = T_1'\\
+    \sigma(\Gamma) \vdash match_U(p, T_1') = C_1', \Gamma' \andalso \Gamma' \vdash e_2 : T_2 \; | \; C_2 \; | \; \gamma_2}
+    {\Gamma \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 : T_2 \; | \; C_1' \cup C_1 \cup C_2  \; | \; \gamma_2 \cup \gamma_1}
+
+\paragraph{Match Expression}
+
+The constraint collection rule for a match expression requires an auxiliary function, much like its operational semantic rule.
+A fresh type variable $X_1$ is created, representing the output type of the expression and, along with the type $T$ of the expression $e$, is used to validate every $match_i$ in the expression.
+
+\infrule[T-Match]
+    {\Gamma \vdash e : T \; | \; C \; | \; \gamma \andalso \Gamma \vdash fresh(X) = X_1\\
+    \forall i \in \left[1..n\right] \Gamma \vdash validate(match_i, T, X_1) = C_i \; | \; \gamma_i}
+    {\Gamma \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n : X_1 \; | \; C \cup \displaystyle \bigcup_{i=1}^{n} C_i \; | \; \gamma \cup \displaystyle \bigcup_{i=1}^{n} \gamma_i}
+
+\medskip
+
+The $validate$ function takes a $match$ expression, a type $T_{in}$, representing the type of the pattern, and a $T_{out}$, representing the result of evaluating the $match$ expression, as inputs.
+The function outputs a set of constraints and a unification environment if successful.
+
+For an unconditional $match$, the pattern in matched against the provided input type $T_{in}$ and the type of the expression $e$ is constrained to equal the provided type $T_{out}$.
+It is important to realize that the typing environment returned by the match (i.e. $\Gamma'$) is used only to obtain the type of $e$, since any identifiers bound in the pattern $p$ can only be used inside a single $match$ expression.
+
+\infrule[]
+  {\Gamma \vdash match(p, T_{in}) = C, \Gamma' \andalso \Gamma' \vdash e : T_1 \; | \; C_1 \; | \; \gamma_1}
+  {\Gamma \vdash validate(p \rightarrow e, T_{in}, T_{out}) = C \cup C_1 \cup \{T_1 = T_{out}\} \; | \; \gamma_1}
+
+The same holds true for a conditional $match$, with the added verification that the type of $e_1$ must be equal to $Bool$.
+
+\infrule[]
+  {\Gamma \vdash match(p, T_{in}) = C, \Gamma' \andalso \Gamma' \vdash e_1 : T_1 \; | \; C_1 \; | \; \gamma_1\\
+    \Gamma' \vdash e_2 : T_2 \; | \; C_2 \; | \; \gamma_2}
+  {\Gamma \vdash validate(p \; \mbox{when} \; e_1 \rightarrow e_2, T_{in}, T_{out}) =\\
+  C \cup C_1 \cup C_2 \cup \{T_1 = Bool, T_2 = T_{out}\} \; | \; \gamma_1 \cup \gamma_2}
+
+\paragraph{Exception}
+
+The $raise$ expression simply creates and returns a new fresh type variable.
+
+\infrule[T-Raise]
+    {\Gamma \vdash fresh(X) = X_1}
+    {\Gamma \vdash raise : X_1}
+
+\end{document}
