@@ -136,13 +136,13 @@ This binding creates a new type alias that can be used further down in the synta
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e' &::= &\cdots\\
-    &| &\texttt{let} \; decl' \; \texttt{in} \; e\\
+    &| &decl' \; \texttt{in} \; e\\
 \\
-decl' &::= &p' = e'\\
-    &| &f \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
-    &| &\texttt{rec} \; f \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
-    &| &f: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
-    &| &\texttt{rec} \; f: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+decl' &::= &\texttt{let} \; p' = e'\\
+    &| &\texttt{let} \; f \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{let} \; \texttt{rec} \; f \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{let} \; f: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{let} \; \texttt{rec} \; f: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
     &| &\texttt{type alias} \; \tau = T'\\
 \end{tabular}}
 
@@ -217,6 +217,57 @@ To allow easier creation of tuples, a new term is added to the extended language
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e' &::= &\cdots\\
     &| &(e_1', \; \dots \; e_n') & (n \geq 2)\\
+\end{tabular}}
+
+\subsubsection{Accessors and Records}
+
+The extended language provides easier syntax for creating and using accessors, both in accessing and updating fields of records.
+
+The basis for this syntax is the $dot$, which simplifies the construction of the most common use cases for accessors.
+A $dot$ is composed of a stack of $acc$, which are individual components in an accessor.
+$acc$s can be field labels, arbitrary identifiers or joined $dot$s.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+   &| &\#dot\\
+\\
+dot &::= &acc \; . \; dot\\
+    &| &acc\\
+\\
+acc &::= &l\\
+         &| &'x\\
+         &| &(dot_1, \; \dots \; dot_n) &(n\geq2)
+\end{tabular}}
+
+\paragraph{Dot Access}
+
+Another use of the $dot$ is to allow a simple syntax for getting a field of a record, being very similar to many object-oriented languages.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &x \; . \; dot\\
+\end{tabular}}
+
+\paragraph{Record Update}
+
+Finally, the dot syntax is used to allow the easy update of a record.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &\texttt{update} \; set_1, \; \dots \; set_n & (n\geq1)\\
+\\
+set &::= &dot \leftarrow e\\
+    &| &dot \flowsfrom e\\
+    &| &decl'\\
 \end{tabular}}
 
 
