@@ -263,11 +263,14 @@ Finally, the dot syntax is used to allow the easy update of a record.
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e' &::= &\cdots\\
-    &| &\texttt{update} \; set_1, \; \dots \; set_n & (n\geq1)\\
+   &| &\texttt{update} \; updates\\
 \\
-set &::= &dot \leftarrow e\\
-    &| &dot \flowsfrom e\\
-    &| &decl'\\
+updates &::= &\varnothing\\
+        &| &update :: updates\\
+\\
+update &::= &dot \leftarrow e\\
+       &| &dot \flowsfrom e\\
+       &| &decl'\\
 \end{tabular}}
 
 
@@ -561,6 +564,68 @@ The result of translating a declaration is a set of associations between pattern
   \gamma \vdash (\texttt{rec} \; f : T' \; patt'_1 : T_1', \; \dots \; patt'_n : T_n' \Rightarrow e') \Rightarrow e\\
   f' \; is \; new}
   {\gamma \vdash \texttt{rec} \; f : T' \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' : T'' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
+
+\subsubsection{Dot Translation}
+
+To properly translate the accessor and dot syntax expressions introduced in the extended language, it is necessary to define translations for both $acc$ and $dot$ expressions.
+
+When translating an $acc$, the result is an expression $e$.
+The rules governing this translation are given below.
+
+\infax[Tr-Acc-Label]
+  {\gamma \vdash l \Rightarrow \#l}
+
+\infax[Tr-Acc-'x]
+  {\gamma \vdash 'x \Rightarrow x}
+
+\infrule[Tr-Acc-Joined]
+  {\forall i \in [1, n] \; . \; \gamma \vdash dotıi \Rightarrow e_i}
+  {\gamma \vdash (dot_1, \; \dots \; dot_n) \Rightarrow \#(e_1, \; \dots \; e_n)}
+
+Similarly, translating a $dot$ also yields an expression $e$.
+The two rules defining this translation are given below.
+
+\infrule[Tr-Dot-Stacked]
+  {\gamma \vdash acc \Rightarrow e}
+  {\gamma \vdash acc \Rightarrow e}
+
+\infrule[Tr-Dot-Stacked]
+  {\gamma \vdash acc \Rightarrow e_1 \andalso \gamma \vdash dot \Rightarrow e_2}
+  {\gamma \vdash acc \; . \; dot \Rightarrow \texttt{stack} \; e_1 \; e_2}
+
+Using the translations defined above, defining the translation of the accessor and dot access expressions is trivial:
+
+\infrule[Tr-E-Acc]
+  {\gamma \vdash dot \Rightarrow e}
+  {\gamma \vdash \#dot \Rightarrow e}
+
+\infrule[Tr-E-Dot]
+  {\gamma \vdash dot \Rightarrow e}
+  {\gamma \vdash x \; . \; dot \Rightarrow \texttt{get} \; e \; x}
+
+\subsubsection{Record Update Translation}
+
+\infrule[Tr-Updates-Empty]
+  {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow x)}
+  {\text{concat}(\varnothing, \gamma) = f', \gamma}
+
+\infrule[Tr-Set-Set]
+  {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow \texttt{set} \; \#dot \; e' \; x)\\
+  \text{concat}(updates, \gamma) = g', \gamma'}
+  {\text{concat}(dot \leftarrow e :: updates, \gamma) = g' \; . \; f', \gamma'}
+
+\infrule[Tr-Set-Modify]
+  {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow \texttt{modify} \; \#dot \; e' \; x)\\
+  \text{concat}(updates, \gamma) = g', \gamma'}
+  {\text{concat}(dot \flowsfrom e' :: updates, \gamma) = g \; . \; f', \gamma'}
+
+\infrule[Tr-Set-Decl]
+  {\text{concat}(updates, \gamma) = g', \gamma'}
+  {\text{concat}(decl'  :: updates, \gamma) = \texttt{let} \; decl' \; \texttt{in} \; g', \gamma'}
+
+\infrule[Tr-E-Update]
+  {\text{concat}(updates) = f', \gamma' \andalso \gamma' \vdash f' \Rightarrow f}
+  {\gamma \vdash \texttt{update} \; updates \Rightarrow f}
 
 \subsubsection{Expression Translation}
 
