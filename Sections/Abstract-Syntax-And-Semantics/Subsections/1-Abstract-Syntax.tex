@@ -370,7 +370,9 @@ Instead of taking values as arguments, however, constructor types take types as 
     &| &\mbox{Bool} & (\text{arity} \; 0)\\
     &| &\mbox{Char} & (\text{arity} \; 0)\\
     &| &\mbox{List} & (\text{arity} \; 1)\\
-    &| &\text{TupleT} \; n & (\text{arity} \; n, \; n\geq2)\\
+    &| &\text{Tuple}_T & (\text{arity} \; n, \; n\geq2)\\
+    &| &\text{IO}_T & (\text{arity} \; 1)\\
+    &| &\text{Void}_T & (\text{arity} \; 0)\\
 \end{tabular}}
 
 \paragraph{Variable Types}
