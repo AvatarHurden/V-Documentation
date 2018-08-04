@@ -264,6 +264,45 @@ match &::= &p \rightarrow e\\
     &| &p \; \texttt{when} \; e_1 \rightarrow e_2\\
 \end{tabular}}
 
+\paragraph{IO}
+
+The language supports simple input and output through the \texttt{read} and \texttt{write} built-in functions.
+These functions operate on values constructed on the \texttt{IO} constructor, and a new empty value (\texttt{Void}) is introduced to represent the result of evaluating the \texttt{write} function.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+Builtin &::= &\cdots\\
+        &| &\text{read} &(\text{unary})\\
+        &| &\text{write} &(\text{unary})\\
+\\
+con &::= &\cdots\\
+    &| &\text{IO} &(\text{arity} \; 1)\\
+    &| &\text{Void} &(\text{arity} \; 0)\\
+\end{tabular}}
+
+\bigskip
+
+Both \texttt{IO} functions operate on single characters; \texttt{read} receives one character from the standard system IO (console), while \texttt{write} prints a single character to the system IO.
+
+To allow composition of these functions, two monadic operations were introduced to the language: \texttt{return} and \texttt{bind}.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+Builtin &::= &\cdots\\
+
+        &| &\text{return} &(\text{unary})\\
+        &| &\text{bind} &(\text{binary})\\
+\end{tabular}}
+
+\bigskip
+
+\texttt{return} is a function that takes any value and returns that value encapsulated in the \texttt{IO} constructor.
+\texttt{bind} takes an \texttt{IO} value and a function, returning the result of applying the function to the value that was encapsulated in the \texttt{IO}.
+
 \paragraph{Exceptions}
 
 This expression always evaluates to a runtime error.
