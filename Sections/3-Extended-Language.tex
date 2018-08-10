@@ -222,7 +222,7 @@ e' &::= &\cdots\\
 \paragraph{Do Notation}
 
 For composing multiple IO operations, using the basic bind and return operations is cumbersome.
-Because of this, the following do notation was introduced:
+Because of this, the following notation was introduced:
 
 \medskip
 
@@ -710,5 +710,27 @@ The second argument of the function is the translation of the expression $e_2'$,
 \infrule[Tr-E-Comprehension]
   {\gamma \vdash (\texttt{fn} \; p' \Rightarrow e_1') \Rightarrow f \andalso \gamma \vdash e_2' \Rightarrow e_2}
   {\gamma \vdash [e_1' \; \text{for} \; p' \; \text{in} \; e_2'] \Rightarrow \text{map} \; f \; e_2}
+
+
+\subsubsection{Do Notation Translation}
+
+\infax[Tr-Do-Base]
+  {\text{concat}(e', \gamma) = e', \gamma}
+
+\infrule[Tr-Do-Bind]
+  {\text{concat}(doTerms, \gamma) = f', \gamma'}
+  {\text{concat}(p' \leftarrow e' :: doTerms, \gamma) = \text{bind} \; e' \; (\texttt{fn} \; p' \Rightarrow f'), \gamma'}
+
+\infrule[Tr-Do-Term]
+  {\text{concat}(doTerms, \gamma) = f', \gamma'}
+  {\text{concat}(e' :: doTerms, \gamma) = \text{bind} \; e' \; (\texttt{fn} \; \_ \Rightarrow f'), \gamma'}
+
+\infrule[Tr-Do-Decl]
+  {\text{concat}(doTerms, \gamma) = f', \gamma'}
+  {\text{concat}(decl' :: doTerms, \gamma) = \texttt{let} \; decl' \; \texttt{in} \; f', \gamma'}
+
+\infrule[Tr-E-Do]
+  {\text{concat}(doTerms) = f', \gamma' \andalso \gamma' \vdash f' \Rightarrow f}
+  {\gamma \vdash \texttt{do} \; doTerms \Rightarrow f}
 
 \end{document}
