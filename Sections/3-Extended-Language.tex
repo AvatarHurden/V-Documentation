@@ -629,19 +629,19 @@ Using the translations defined above, defining the translation of the accessor a
   {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow x)}
   {\text{concat}(\varnothing, \gamma) = f', \gamma}
 
-\infrule[Tr-Set-Set]
+\infrule[Tr-Updates-Set]
   {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow \texttt{set} \; \#dot \; e' \; x)\\
   \text{concat}(updates, \gamma) = g', \gamma'}
   {\text{concat}(dot \leftarrow e' :: updates, \gamma) = g' \; . \; f', \gamma'}
 
-\infrule[Tr-Set-Modify]
+\infrule[Tr-Updates-Modify]
   {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow \texttt{modify} \; \#dot \; e' \; x)\\
   \text{concat}(updates, \gamma) = g', \gamma'}
   {\text{concat}(dot \flowsfrom e' :: updates, \gamma) = g \; . \; f', \gamma'}
 
-\infrule[Tr-Set-Decl]
+\infrule[Tr-Updates-Decl]
   {\text{concat}(updates, \gamma) = g', \gamma'}
-  {\text{concat}(decl'  :: updates, \gamma) = \texttt{let} \; decl' \; \texttt{in} \; g', \gamma'}
+  {\text{concat}(decl' :: updates, \gamma) = \texttt{let} \; decl' \; \texttt{in} \; g', \gamma'}
 
 \infrule[Tr-E-Update]
   {\text{concat}(updates) = f', \gamma' \andalso \gamma' \vdash f' \Rightarrow f}
