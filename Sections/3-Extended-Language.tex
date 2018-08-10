@@ -219,6 +219,26 @@ e' &::= &\cdots\\
     &| &(e_1', \; \dots \; e_n') & (n \geq 2)\\
 \end{tabular}}
 
+\paragraph{Do Notation}
+
+For composing multiple IO operations, using the basic bind and return operations is cumbersome.
+Because of this, the following do notation was introduced:
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+   &| &\texttt{do} \; doTerms\\
+\\
+doTerms &::= &e'\\
+        &| &doTerm :: doTerms\\
+\\
+doTerm &::= &p' \leftarrow e'\\
+       &| &e'\\
+       &| &decl'\\
+\end{tabular}}
+
 \subsubsection{Accessors and Records}
 
 The extended language provides easier syntax for creating and using accessors, both in accessing and updating fields of records.
@@ -268,8 +288,8 @@ e' &::= &\cdots\\
 updates &::= &\varnothing\\
         &| &update :: updates\\
 \\
-update &::= &dot \leftarrow e\\
-       &| &dot \flowsfrom e\\
+update &::= &dot \leftarrow e'\\
+       &| &dot \flowsfrom e'\\
        &| &decl'\\
 \end{tabular}}
 
@@ -612,7 +632,7 @@ Using the translations defined above, defining the translation of the accessor a
 \infrule[Tr-Set-Set]
   {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow \texttt{set} \; \#dot \; e' \; x)\\
   \text{concat}(updates, \gamma) = g', \gamma'}
-  {\text{concat}(dot \leftarrow e :: updates, \gamma) = g' \; . \; f', \gamma'}
+  {\text{concat}(dot \leftarrow e' :: updates, \gamma) = g' \; . \; f', \gamma'}
 
 \infrule[Tr-Set-Modify]
   {x \; is \; new \andalso f' = (\texttt{fn} \; x \Rightarrow \texttt{modify} \; \#dot \; e' \; x)\\
