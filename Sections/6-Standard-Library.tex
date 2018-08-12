@@ -481,4 +481,21 @@ Converts values from and to strings.
   {Bool -> String}
   {Converts a boolean value into a string.}
 
+
+\subsection{IO Operations}
+
+The standard library provides a few additional IO functions to complement the builtin write and read functions,
+
+\medskip
+
+\libfunction
+  {readLn}
+  {Void -> IO \; String}
+  {Reads a complete line from the standard input. A line ends with either a linefeed (\textbackslash n) or a carriage return (\textbackslash r).}
+
+\libfunction
+  {writeLn}
+  {String -> IO \; Void}
+  {Prints the string to the standard output, followed by a linefeed (\textbackslash n).}
+
 \end{document}
