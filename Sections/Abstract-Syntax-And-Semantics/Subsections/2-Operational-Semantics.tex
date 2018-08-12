@@ -648,6 +648,35 @@ If the $match$ has a conditional expression, it must evaluate to $true$ for the 
   \mbox{env} \cup env_1 \vdash e_2 \Downarrow v_2}
   {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = v_2}
 
+\paragraph{IO Expressions}
+
+Evaluating any IO expression requires interaction with an operating system, and how this is done is left as a matter of implementation.
+The only requirement imposed by the operational rules is that reading and writing be done one character at a time.
+
+\infrule[BS-Read]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{read} \; . \gg \andalso \mbox{env} \vdash e_1 \Downarrow \text{Void} \\
+    c \text{ is the next character in the standard input}}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \text{IO} \; c}
+
+\infrule[BS-Write]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{write} \; . \gg \andalso \mbox{env} \vdash e_1 \Downarrow c\\
+    c \text{ is written to the standard input}}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \text{IO} \; Void}
+
+\paragraph{Composing IO}
+
+In order to compose IO operations, two monadic functions were introduced in the language: return and bind.
+Currently, the only kind of value that can be manipulated with these functions is IO, but this system can be extended to support any monadic type in the future.
+
+\infrule[BS-Return]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{return} \; . \gg \andalso \mbox{env} \vdash e_1 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \text{IO} \; v}
+
+\infrule[BS-Bind]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{bind} \; . \; \text{IO} \; v_1 \gg \andalso \mbox{env} \vdash e_1 \Downarrow v_2\\
+    \mbox{env} \vdash v_2 \; v_1 \Downarrow v_3}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v_3}
+
 \paragraph{Exceptions}
 
 Some programs can be syntactically correct but still violate the semantics of the $V$ language, such as a dividing by zero or trying to access the head of an empty list.

@@ -119,6 +119,26 @@ These functions manipulate accessors, creating fresh type variables to represent
     {\Gamma \vdash fresh(X) = T_1 \andalso \Gamma \vdash fresh(X) = T_2 \andalso \Gamma \vdash fresh(X) = T_3}
     {\Gamma \vdash \text{distort} : T_2\#T_1 \rightarrow (T_1 \rightarrow T_3) \rightarrow (T_3 \rightarrow T_1 \rightarrow T_1) \rightarrow T_2\#T_3}
 
+\subparagraph{IO Functions}
+
+The typing rules for both IO related functions are very simple, relying on Void$_T$ and IO$_T$ to define their inputs and outputs.
+
+\infax[T-read]
+    {\Gamma \vdash \text{read} : \text{Void}_T \rightarrow\text{IO}_T \; \text{Char}}
+
+\infax[T-get]
+    {\Gamma \vdash \text{write} : \text{Char} \rightarrow \text{IO}_T \;  \text{Void}_T}
+
+For IO composition, the return and bind functions also have straightforward type signatures.
+
+\infrule[T-return]
+    {\Gamma \vdash fresh(X) = T_1}
+    {\Gamma \vdash \text{return} : T_1 \rightarrow \text{IO}_T \;  T_1}
+
+\infrule[T-bind]
+    {\Gamma \vdash fresh(X) = T_1 \andalso \Gamma \vdash fresh(X) = T_2}
+    {\Gamma \vdash \text{write} : \text{IO}_T \;  T_1 \rightarrow (T_1 \rightarrow \text{IO}_T \;  T_2) \rightarrow \text{IO}_T \;  T_2}
+
 \paragraph{Constructors}
 
 The rule for typing constructors is very simple.
