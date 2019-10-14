@@ -818,5 +818,92 @@ Because the library was imported inside the scope of the function body, none of 
   double 4 // Invalid
 \end{lstlisting}
 
+\subsection{REPL}
+
+The REPL is a way to interactively test the language.
+Every expression written in the REPL is immediately evaluated and the result is printed in a new line.
+
+\begin{lstlisting}[language=bash]
+> 4 + 5
+9
+\end{lstlisting}
+
+Expressions can span multiple lines: if the parser cannot understand the current line as a legal expression (e.g because of a missing parentheses), you can continue to write code in a new line.
+
+\begin{lstlisting}[language=bash]
+> if (4 > 5) then
+  "Hello"
+else
+  "World"
+"World"
+\end{lstlisting}
+
+If you write a binding, it is added to the current environment and can be used in subsequent expressions. The value and type of the binding are also printed to the terminal.
+
+\begin{lstlisting}[language=bash]
+> let x = 4;
+x: Int = 4
+> if (x > 5) then "Hello" else "World"
+"World"
+\end{lstlisting}
+
+There are also 4 commands available in the REPL that are not part of the language:
+
+\begin{itemize}
+  \item <type>
+
+  If you use this command, the REPL will print the type of the expression, instead of its value.
+
+  \begin{lstlisting}[language=bash]
+> <type> fst "Hello"
+Char
+  \end{lstlisting}
+
+  \item <list>
+
+  This command lists any bindings that you have created in the environment, showing their identifier, type and value.
+
+  \begin{lstlisting}[language=bash]
+> let x = 3;
+x: Int = 3
+> let y = (\x -> x);
+y: t -> t
+> <list>
+x: Int = 3
+y: t -> t
+  \end{lstlisting}
+
+  \item <list-all>
+
+  Similar to the <list> command, but this also lists all of the bindings that exist in the standard library.
+
+  \begin{lstlisting}[language=bash]
+> <list-all>
+abs: Int -> Int
+all: (t -> Bool) -> [t] -> Bool
+...
+  \end{lstlisting}
+
+  \item <clear>
+
+  Clears any bindings that you have created.
+
+  \item <history>
+
+  Prints all the expressions you have written to the console.
+  This is useful if you want to copy experimental code to a file or share your code with others.
+
+  \begin{lstlisting}[language=bash]
+> let x = 3;
+x: Int = 3
+> x + 4
+7
+> <history>
+let x = 3;
+x + 4
+  \end{lstlisting}
+\end{itemize}
+
+
 
 \end{document}
